@@ -4,10 +4,17 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Chia Sẻ Ước Mơ</title>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; padding: 20px; }
+        input, button { padding: 10px; margin: 5px; }
+        .dream { margin: 10px 0; padding: 10px; border: 1px solid #ddd; text-align: left; display: flex; flex-direction: column; align-items: center; }
+        .dream img { max-width: 200px; margin-top: 10px; border-radius: 10px; }
+    </style>
 </head>
 <body>
     <h2>Chia sẻ ước mơ của bạn</h2>
-    <input type="text" id="dream" placeholder="Nhập ước mơ của bạn">
+    <input type="text" id="dream" placeholder="Nhập ước mơ của bạn"><br>
+    <input type="file" id="imageUpload" accept="image/*"><br>
     <button onclick="submitDream()">Gửi ước mơ</button>
 
     <h3>Danh sách ước mơ:</h3>
@@ -15,9 +22,10 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-app.js";
-        import { getDatabase, ref, push, set, onChildAdded } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-database.js";
+        import { getDatabase, ref, push, set, onChildAdded, remove } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-database.js";
+        import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-storage.js";
 
-        // 🔥 Thay thông tin Firebase của bạn
+        // ✅ Thay thông tin Firebase của bạn vào đây
         const firebaseConfig = {
             apiKey: "YOUR_API_KEY",
             authDomain: "chia-se-uoc-mo.firebaseapp.com",
@@ -31,30 +39,62 @@
         // Khởi tạo Firebase
         const app = initializeApp(firebaseConfig);
         const database = getDatabase(app);
+        const storage = getStorage(app);
 
-        // Gửi dữ liệu vào Firebase
-        window.submitDream = function() {
-            let dreamText = document.getElementById("dream").value;
+        // 📝 Gửi ước mơ và ảnh lên Firebase
+        window.submitDream = async function() {
+            let dreamText = document.getElementById("dream").value.trim();
+            let fileInput = document.getElementById("imageUpload").files[0];
+
             if (!dreamText) {
                 alert("Hãy nhập nội dung ước mơ!");
                 return;
             }
 
-            const newDreamRef = push(ref(database, "dreams"));
-            set(newDreamRef, { text: dreamText });
+            let newDreamRef = push(ref(database, "dreams"));
+            let dreamData = { text: dreamText };
 
+            // Nếu có ảnh, tải lên Firebase Storage
+            if (fileInput) {
+                let imageRef = storageRef(storage, `dreams/${newDreamRef.key}`);
+                await uploadBytes(imageRef, fileInput);
+                let imageUrl = await getDownloadURL(imageRef);
+                dreamData.image = imageUrl;
+            }
+
+            // Lưu vào Database
+            await set(newDreamRef, dreamData);
+
+            // Reset input
             document.getElementById("dream").value = "";
+            document.getElementById("imageUpload").value = "";
         };
 
-        // Hiển thị dữ liệu thời gian thực
+        // 📌 Hiển thị dữ liệu từ Firebase Realtime Database
         const dreamList = document.getElementById("dream-list");
         onChildAdded(ref(database, "dreams"), (snapshot) => {
             let data = snapshot.val();
+            let dreamId = snapshot.key;
+
+            // Tạo phần tử hiển thị ước mơ
             let post = document.createElement("div");
             post.className = "dream";
-            post.innerText = data.text;
+            post.innerHTML = `
+                <p>${data.text}</p>
+                ${data.image ? `<img src="${data.image}" alt="Hình ảnh ước mơ">` : ""}
+                <button onclick="deleteDream('${dreamId}', this)">Xóa</button>
+            `;
             dreamList.appendChild(post);
         });
+
+        // 🗑️ Hàm xóa ước mơ
+        window.deleteDream = function(dreamId, button) {
+            let confirmDelete = confirm("Bạn có chắc chắn muốn xóa ước mơ này?");
+            if (confirmDelete) {
+                remove(ref(database, `dreams/${dreamId}`));
+                button.parentElement.remove();
+            }
+        };
     </script>
 </body>
 </html>
