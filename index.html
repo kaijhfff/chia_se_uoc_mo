@@ -15,7 +15,7 @@
     <h2>Chia sẻ ước mơ của bạn</h2>
     <input type="text" id="dream" placeholder="Nhập ước mơ của bạn"><br>
     <input type="file" id="imageUpload" accept="image/*"><br>
-    <button onclick="submitDream()">Gửi ước mơ</button>
+    <button id="submitBtn">Gửi ước mơ</button>
 
     <h3>Danh sách ước mơ:</h3>
     <div id="dream-list"></div>
@@ -41,8 +41,7 @@
         const database = getDatabase(app);
         const storage = getStorage(app);
 
-        // 📝 Gửi ước mơ và ảnh lên Firebase
-        window.submitDream = async function() {
+        document.getElementById("submitBtn").addEventListener("click", async () => {
             let dreamText = document.getElementById("dream").value.trim();
             let fileInput = document.getElementById("imageUpload").files[0];
 
@@ -54,29 +53,26 @@
             let newDreamRef = push(ref(database, "dreams"));
             let dreamData = { text: dreamText };
 
-            // Nếu có ảnh, tải lên Firebase Storage
-            if (fileInput) {
-                let imageRef = storageRef(storage, `dreams/${newDreamRef.key}`);
-                await uploadBytes(imageRef, fileInput);
-                let imageUrl = await getDownloadURL(imageRef);
-                dreamData.image = imageUrl;
+            try {
+                if (fileInput) {
+                    let imageRef = storageRef(storage, `dreams/${newDreamRef.key}`);
+                    await uploadBytes(imageRef, fileInput);
+                    let imageUrl = await getDownloadURL(imageRef);
+                    dreamData.image = imageUrl;
+                }
+                await set(newDreamRef, dreamData);
+                document.getElementById("dream").value = "";
+                document.getElementById("imageUpload").value = "";
+            } catch (error) {
+                console.error("Lỗi khi gửi dữ liệu: ", error);
+                alert("Gửi ước mơ thất bại. Kiểm tra kết nối và thử lại!");
             }
+        });
 
-            // Lưu vào Database
-            await set(newDreamRef, dreamData);
-
-            // Reset input
-            document.getElementById("dream").value = "";
-            document.getElementById("imageUpload").value = "";
-        };
-
-        // 📌 Hiển thị dữ liệu từ Firebase Realtime Database
         const dreamList = document.getElementById("dream-list");
         onChildAdded(ref(database, "dreams"), (snapshot) => {
             let data = snapshot.val();
             let dreamId = snapshot.key;
-
-            // Tạo phần tử hiển thị ước mơ
             let post = document.createElement("div");
             post.className = "dream";
             post.innerHTML = `
@@ -87,12 +83,15 @@
             dreamList.appendChild(post);
         });
 
-        // 🗑️ Hàm xóa ước mơ
-        window.deleteDream = function(dreamId, button) {
-            let confirmDelete = confirm("Bạn có chắc chắn muốn xóa ước mơ này?");
-            if (confirmDelete) {
-                remove(ref(database, `dreams/${dreamId}`));
-                button.parentElement.remove();
+        window.deleteDream = async function(dreamId, button) {
+            if (confirm("Bạn có chắc chắn muốn xóa ước mơ này?")) {
+                try {
+                    await remove(ref(database, `dreams/${dreamId}`));
+                    button.parentElement.remove();
+                } catch (error) {
+                    console.error("Lỗi khi xóa: ", error);
+                    alert("Xóa thất bại, thử lại sau!");
+                }
             }
         };
     </script>
