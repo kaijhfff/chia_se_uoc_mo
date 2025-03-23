@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chia Sẻ Ước Mơ</title>
+</head>
+<body>
+    <h2>Chia sẻ ước mơ của bạn</h2>
+    <input type="text" id="dream" placeholder="Nhập ước mơ của bạn">
+    <button onclick="submitDream()">Gửi ước mơ</button>
+
+    <h3>Danh sách ước mơ:</h3>
+    <div id="dream-list"></div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-app.js";
+        import { getDatabase, ref, push, set, onChildAdded } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-database.js";
+
+        // 🔥 Thay thông tin Firebase của bạn
+        const firebaseConfig = {
+            apiKey: "YOUR_API_KEY",
+            authDomain: "chia-se-uoc-mo.firebaseapp.com",
+            databaseURL: "https://chia-se-uoc-mo-default-rtdb.firebaseio.com/",
+            projectId: "chia-se-uoc-mo",
+            storageBucket: "chia-se-uoc-mo.appspot.com",
+            messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+            appId: "YOUR_APP_ID"
+        };
+
+        // Khởi tạo Firebase
+        const app = initializeApp(firebaseConfig);
+        const database = getDatabase(app);
+
+        // Gửi dữ liệu vào Firebase
+        window.submitDream = function() {
+            let dreamText = document.getElementById("dream").value;
+            if (!dreamText) {
+                alert("Hãy nhập nội dung ước mơ!");
+                return;
+            }
+
+            const newDreamRef = push(ref(database, "dreams"));
+            set(newDreamRef, { text: dreamText });
+
+            document.getElementById("dream").value = "";
+        };
+
+        // Hiển thị dữ liệu thời gian thực
+        const dreamList = document.getElementById("dream-list");
+        onChildAdded(ref(database, "dreams"), (snapshot) => {
+            let data = snapshot.val();
+            let post = document.createElement("div");
+            post.className = "dream";
+            post.innerText = data.text;
+            dreamList.appendChild(post);
+        });
+    </script>
+</body>
+</html>
